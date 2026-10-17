@@ -204,7 +204,7 @@ curl http://localhost
 
 내 PC 브라우저에서 `http://127.0.0.1:8020` (포트 포워딩)으로 접속 확인
 
-(브라우저 화면 캡처를 끌어다 놓으세요)
+<img width="303" height="141" alt="image" src="https://github.com/user-attachments/assets/3e06f577-9d0a-427a-bd7c-ff27fff0623a" />
 
 ---
 

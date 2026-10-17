@@ -39,7 +39,7 @@ sudo dnf -y update
 sudo dnf -y install vim bash-completion policycoreutils-python-utils
 ```
 
-(ip addr, ping 결과 캡처를 끌어다 놓으세요)
+<img width="833" height="575" alt="image" src="https://github.com/user-attachments/assets/3cd9432e-af0b-477f-af7c-b6a4bb8c5998" />
 
 | 명령 | 의미 |
 | --- | --- |

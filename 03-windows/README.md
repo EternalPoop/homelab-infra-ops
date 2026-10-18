@@ -109,7 +109,7 @@ Get-ADGroupMember GG_Ops | Select Name
 - 계정·비밀번호 정책은 컴퓨터 단위라 도메인 전체에, 화면 잠금은 사용자 단위라 직원 OU에만 적용
 - 화면 잠금을 도메인 전체에 걸면 서버 관리자 계정도 10분마다 잠기기 때문
 
-(gpmc.msc 화면 캡처를 끌어다 놓으세요)
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/62994146-02bd-471b-bd1f-3aee30a6bb15" />
 
 ---
 
@@ -139,7 +139,8 @@ Add-Computer -DomainName lab.local -NewName cli01 -Restart
 - `LAB\kim.it` 로그인 → 첫 로그인 시 비밀번호 변경 요구 확인
 - `\\dc01\Ops` 접근, `gpresult /r`에서 GPO_ScreenLock 적용 확인
 
-(도메인 로그인 화면, gpresult 결과 캡처를 끌어다 놓으세요)
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/19a50c62-cbd8-4e0d-8396-eead2eed1f93" />
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/a078b995-bb90-42f4-8949-939c2430a11a" />
 
 ---
 
@@ -154,7 +155,7 @@ Add-Computer -DomainName lab.local -NewName cli01 -Restart
 | 4740 | 계정 잠김 (DC) |
 | 6008 | 예기치 않은 종료 |
 
-(4624 상세 화면 캡처를 끌어다 놓으세요)
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/f90325db-f5dc-4bb7-baf6-998b33a47c5a" />
 
 ---
 

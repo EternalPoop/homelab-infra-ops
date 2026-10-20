@@ -141,3 +141,32 @@ zabbix_get -s 10.10.10.10 -k agent.ping   # dc01  → 1
 - **Host name과 Visible name**: Host name은 에이전트 설정의 `Hostname=`과 일치해야 하는 실제 식별자, Visible name은 화면 표시용 별칭.
 - **기본 계정**: 설치 시 공개된 기본 관리자 계정이 함께 생성되므로 설치 직후 비밀번호 변경이 필요.
 - **알림은 장애 발생 시점에 판단**: 알림 설정 전에 이미 발생한 장애에는 메일이 가지 않음. 설정 후 장애를 다시 발생시켜 테스트.
+
+- # 4단계 구축 중 문제 해결 기록
+| # | 증상 | 원인 | 조치 |
+| --- | --- | --- | --- |
+| 1 | mon01 IP 적용 시 `IP configuration could not be reserved` | 복제 원본이 고정 IP 설정 전 상태라 `ipv4.method auto`(DHCP). 내부망에 DHCP 없음 | `ipv4.method manual`로 변경 후 IP·게이트웨이·DNS 지정 |
+| 2 | `ping repo.zabbix.com`은 되는데 `rpm`(curl)은 `Could not resolve host` | DNS 서버(dc01)의 외부 이름 응답 불안정. ping과 curl의 이름 조회 방식 차이로 일부만 실패 | 보조 DNS 8.8.8.8 추가. 이후 dc01 DNS 포워더 원인 확인 예정 |
+| 3 | `mysql -uroot -p` 접속 거부 (ERROR 1698) | MariaDB root는 비밀번호 대신 OS 계정 인증(unix_socket) 사용 | `sudo mysql`로 접속 |
+| 4 | `vim: command not found` | 복제 원본에 기본 패키지 미설치 | `dnf install vim`. 설정 한 줄 추가는 `tee -a` 사용 |
+| 5 | lin01에서 `zabbix_get` 시 `Connection reset by peer` | 에이전트가 `Server=10.10.10.30`의 질문에만 응답하도록 설정됨 (정상 동작) | mon01에서 테스트 → `1` 응답. 허용 목록 동작 확인 |
+| 6 | Gmail 테스트 메일 `Login denied` | 발신 Email 칸이 예시 주소(`zabbix@example.com`) 그대로 | 실제 Gmail 주소 + 앱 비밀번호로 수정 |
+
+# 실제 장애: dc01 시간 불일치
+- **탐지**: 호스트 등록 직후 dc01 Warning — `System time is out of sync (diff with Zabbix server > 60s)`
+- **영향**: AD는 시간 차이가 5분을 넘으면 Kerberos 인증 실패 → 도메인 로그인 장애로 확대 가능
+- **진단**: mon01 `date`, `chronyc tracking` / dc01 `Get-Date`, `w32tm /query /status`로 양쪽 시간 비교
+- **조치**:
+
+```powershell
+w32tm /config /manualpeerlist:"time.windows.com,0x8 pool.ntp.org,0x8" /syncfromflags:manual /reliable:yes /update
+Restart-Service w32time
+w32tm /resync /force
+```
+
+```bash
+sudo systemctl enable --now chronyd
+chronyc sources
+```
+- **결과**: [ ] RESOLVED 확인 (걸린 시간: 분)
+- **재발 방지**: 도메인 컨트롤러를 외부 NTP와 동기화하도록 설정, Zabbix 시간 동기화 감시 유지

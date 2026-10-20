@@ -132,7 +132,8 @@ zabbix_get -s 10.10.10.10 -k agent.ping   # dc01  → 1
 - [ ] 장애 메일 수신 (걸린 시간: 분)
 - [ ] 복구 메일 수신
 
-![알림 메일](images/04-alert-mail.png)
+<img width="849" height="368" alt="image" src="https://github.com/user-attachments/assets/d52b84ff-1643-435c-aa98-8f4a5d5101e6" />
+
 
 ## 배운 점
 - **패시브(10050)와 액티브(10051)**: 패시브는 서버가 에이전트에 질문, 액티브는 에이전트가 서버에 보고. 에이전트의 `Server=` 값은 질문을 허용할 서버 목록이라, 허용되지 않은 서버(lin01 자신)에서 질문하자 연결이 거부됨.

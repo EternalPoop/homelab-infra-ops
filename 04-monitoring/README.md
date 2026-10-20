@@ -119,7 +119,7 @@ zabbix_get -s 10.10.10.10 -k agent.ping   # dc01  → 1
 - 세 호스트 모두 Availability **ZBX(초록)** 확인
 - dc01 DNS 서비스(DNS Server, DNS Client) 상태 Running 확인
 
-![호스트 등록 화면](images/04-hosts.png)
+<img width="1915" height="914" alt="image" src="https://github.com/user-attachments/assets/30410295-55ce-4f53-998f-f7de8dee7340" />
 
 ### 4-4. 메일 알림
 
@@ -130,9 +130,10 @@ zabbix_get -s 10.10.10.10 -k agent.ping   # dc01  → 1
 5. 테스트: lin01 에이전트 중지 → 장애 메일 / 재시작 → 복구 메일
 
 - [ ] 장애 메일 수신 (걸린 시간: 분)
-- [ ] 복구 메일 수신
+<img width="797" height="380" alt="image" src="https://github.com/user-attachments/assets/baf9d1ad-b5a1-44af-91d1-0ed7b024c0d8" />
 
-<img width="849" height="368" alt="image" src="https://github.com/user-attachments/assets/d52b84ff-1643-435c-aa98-8f4a5d5101e6" />
+- [ ] 복구 메일 수신
+<img width="785" height="375" alt="image" src="https://github.com/user-attachments/assets/4eeea587-2453-42cf-96b3-a173ed36dd65" />
 
 
 ## 배운 점

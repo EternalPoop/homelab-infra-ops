@@ -85,7 +85,9 @@ sudo crontab -l
 
 lin01(왼쪽)과 mon01(오른쪽) 양쪽에 같은 백업 파일이 생성됨
 
-![lin01·mon01 백업 파일](images/05-backup-files.png)
+![lin01·mon01 백업 파일]
+<img width="1919" height="1079" alt="05-backup-files" src="https://github.com/user-attachments/assets/171405b0-2135-4214-b92e-d2fd319643dc" />
+
 
 ### 5-2. Linux 복구 테스트 (lin01)
 
@@ -100,7 +102,9 @@ sudo restorecon -Rv /srv/web                                       # SELinux 라
 curl http://localhost                                              # 정상
 ```
 
-![로컬 백업 복구](images/05-restore-local.png)
+![로컬 백업 복구]
+<img width="966" height="1031" alt="image" src="https://github.com/user-attachments/assets/74e303e0-96fe-485a-911b-8f9286fb9b03" />
+
 
 **테스트 2: 로컬 백업까지 삭제 → mon01 원격 백업으로 복구**
 
@@ -114,7 +118,10 @@ curl http://localhost
 sudo /usr/local/bin/backup.sh && sudo rm /tmp/lin01-2026-10-21.tar.gz   # 로컬 백업 재생성, 임시 파일 정리
 ```
 
-![원격 백업 복구](images/05-restore-remote.png)
+![원격 백업 복구]
+<img width="968" height="1036" alt="image" src="https://github.com/user-attachments/assets/13d80a39-65a2-47d7-b5fb-3f714cbc5b69" />
+
+
 
 ### 5-3. Windows 시스템 상태 백업 (dc01, PowerShell 관리자)
 
@@ -187,4 +194,6 @@ Get-ADUser kim.it -Properties MemberOf, Enabled              # 그룹 소속까�
 
 막힌 점 5번 증거: 압축 실패(`tar: command not found`) 뒤에도 로그에 OK가 기록됨
 
-![로그는 OK인데 tar 실패](images/05-backup-log-fail.png)
+![로그는 OK인데 tar 실패]
+<img width="1919" height="1079" alt="05-backup-log-fail" src="https://github.com/user-attachments/assets/b2a79c22-1183-46f5-9236-891e593c085e" />
+

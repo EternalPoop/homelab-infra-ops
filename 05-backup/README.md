@@ -139,7 +139,8 @@ wbadmin get versions                                         # Can recover: Syst
 
 - 일정 등록: `wbadmin.msc` → Local Backup → Backup Schedule → Custom → System state → Once a day 3:00 AM → Back up to a volume → E:
 
-![백업 일정 등록](images/05-wbadmin-schedule.png)
+![백업 일정 등록]
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/1b096046-4bc4-48ae-a379-ba2fc25e259b" />
 
 ### 5-4. 삭제된 AD 계정 복구 (dc01, PowerShell 관리자)
 
@@ -153,7 +154,8 @@ Get-ADObject -Filter 'samAccountName -eq "kim.it"' -IncludeDeletedObjects | Rest
 Get-ADUser kim.it -Properties MemberOf, Enabled              # 그룹 소속까지 복구 확인
 ```
 
-![AD 계정 복구 후 그룹 소속 확인](images/05-ad-recycle-restore.png)
+![AD 계정 복구 후 그룹 소속 확인]
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/d5ba84ca-9a80-4261-948e-502b2d452543" />
 
 ## 복구 시간 기록
 

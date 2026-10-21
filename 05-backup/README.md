@@ -134,7 +134,8 @@ wbadmin start systemstatebackup -backupTarget:E: -quiet      # 시스템 상태(
 wbadmin get versions                                         # Can recover: System State 확인
 ```
 
-![시스템 상태 백업 성공](images/05-wbadmin-success.png)
+![시스템 상태 백업 성공]
+<img width="1103" height="650" alt="image" src="https://github.com/user-attachments/assets/4095bee7-6470-44b4-89fd-86dcadf4a15d" />
 
 - 일정 등록: `wbadmin.msc` → Local Backup → Backup Schedule → Custom → System state → Once a day 3:00 AM → Back up to a volume → E:
 

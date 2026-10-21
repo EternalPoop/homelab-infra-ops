@@ -83,6 +83,10 @@ ls -lh /var/backup                  # lin01: lin01-2026-10-21.tar.gz 4.7M
 sudo crontab -l
 ```
 
+lin01(왼쪽)과 mon01(오른쪽) 양쪽에 같은 백업 파일이 생성됨
+
+![lin01·mon01 백업 파일](images/05-backup-files.png)
+
 ### 5-2. Linux 복구 테스트 (lin01)
 
 **테스트 1: 로컬 백업으로 복구**
@@ -96,6 +100,8 @@ sudo restorecon -Rv /srv/web                                       # SELinux 라
 curl http://localhost                                              # 정상
 ```
 
+![로컬 백업 복구](images/05-restore-local.png)
+
 **테스트 2: 로컬 백업까지 삭제 → mon01 원격 백업으로 복구**
 
 ```bash
@@ -107,6 +113,8 @@ sudo restorecon -Rv /srv/web
 curl http://localhost
 sudo /usr/local/bin/backup.sh && sudo rm /tmp/lin01-2026-10-21.tar.gz   # 로컬 백업 재생성, 임시 파일 정리
 ```
+
+![원격 백업 복구](images/05-restore-remote.png)
 
 ### 5-3. Windows 시스템 상태 백업 (dc01, PowerShell 관리자)
 
@@ -123,7 +131,11 @@ wbadmin start systemstatebackup -backupTarget:E: -quiet      # 시스템 상태(
 wbadmin get versions                                         # Can recover: System State 확인
 ```
 
+![시스템 상태 백업 성공](images/05-wbadmin-success.png)
+
 - 일정 등록: `wbadmin.msc` → Local Backup → Backup Schedule → Custom → System state → Once a day 3:00 AM → Back up to a volume → E:
+
+![백업 일정 등록](images/05-wbadmin-schedule.png)
 
 ### 5-4. 삭제된 AD 계정 복구 (dc01, PowerShell 관리자)
 
@@ -136,6 +148,8 @@ Remove-ADUser kim.it -Confirm:$false                         # 사고 재현
 Get-ADObject -Filter 'samAccountName -eq "kim.it"' -IncludeDeletedObjects | Restore-ADObject
 Get-ADUser kim.it -Properties MemberOf, Enabled              # 그룹 소속까지 복구 확인
 ```
+
+![AD 계정 복구 후 그룹 소속 확인](images/05-ad-recycle-restore.png)
 
 ## 복구 시간 기록
 
@@ -170,3 +184,7 @@ Get-ADUser kim.it -Properties MemberOf, Enabled              # 그룹 소속까�
 | 9 | wbadmin `backup location could not be found`, `-quiet` 명령 없음 | `E:` 대신 `E;` 입력. PowerShell에서 `;`는 명령 구분자 | `-backupTarget:E:`로 수정 |
 | 10 | `Enable-ADOptionalFeatures` 명령 없음 | 명령 이름 오타 (끝에 s) | `Enable-ADOptionalFeature`로 수정 |
 | 11 | dc01 시각이 한국보다 16시간 느림 (오전 5시대) | 시간대가 미국 태평양으로 설정됨 | `Set-TimeZone -Id "Korea Standard Time"` |
+
+막힌 점 5번 증거: 압축 실패(`tar: command not found`) 뒤에도 로그에 OK가 기록됨
+
+![로그는 OK인데 tar 실패](images/05-backup-log-fail.png)

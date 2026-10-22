@@ -7,9 +7,11 @@
 
 | 대상 | 백업 내용 | 방식 | 저장 위치 | 주기 |
 | --- | --- | --- | --- | --- |
-| lin01 | /etc, /srv/web, /srv/share | tar 압축 + rsync(SSH 키) | lin01 로컬 /var/backup + mon01 원격 /backup/lin01 | 매일 02:00 (cron) |
+| lin01 | /etc, /srv/web, /srv/share | tar 압축 + 복제 클러스터로 복사 | lin01 로컬 /var/backup + GlusterFS 클러스터 bak01~03 (3대 복제) | 매일 02:00 (cron) |
 | dc01 | 시스템 상태 (AD DB, 레지스트리, 부팅 파일) | Windows Server Backup (wbadmin) | 별도 디스크 E: (30GB) | 매일 03:00 |
 | dc01 | 삭제된 AD 개체 | AD 휴지통 | AD 내부 | 상시 |
+
+- 5-1~5-2는 mon01 한 대에 원격 보관했으나, mon01이 단일 장애점이라는 피드백을 받고 5-5에서 3대 복제 클러스터로 개선함.
 
 ## 진행 순서
 
@@ -157,6 +159,142 @@ Get-ADUser kim.it -Properties MemberOf, Enabled              # 그룹 소속까�
 ![AD 계정 복구 후 그룹 소속 확인]
 <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/d5ba84ca-9a80-4261-948e-502b2d452543" />
 
+### 5-5. 백업 클러스터 (GlusterFS 3대 복제)
+
+5-1의 원격 백업은 mon01 한 대에만 보관해서, mon01이 고장 나면 감시와 백업이 함께 사라지는 **단일 장애점(SPOF)**이었다. 인프라 엔지니어에게 받은 피드백을 반영해, 백업 전용 노드 3대를 묶어 **같은 데이터를 3대에 자동 복제**하는 클러스터로 바꿨다.
+
+```text
+lin01 ──백업──▶ /mnt/backupvol (GlusterFS 볼륨 backupvol, replica 3)
+                    │  같은 파일을 3대에 동시 저장
+          ┌─────────┼─────────┐
+        bak01     bak02     bak03
+      10.10.10.71  .72       .73
+```
+
+| 호스트 | IP | vCPU | 메모리 | 디스크 |
+| --- | --- | --- | --- | --- |
+| bak01 | 10.10.10.71 | 1 | 1GB | OS 20GB + 브릭 5GB (XFS) |
+| bak02 | 10.10.10.72 | 1 | 1GB | OS 20GB + 브릭 5GB (XFS) |
+| bak03 | 10.10.10.73 | 1 | 1GB | OS 20GB + 브릭 5GB (XFS) |
+
+- **브릭(brick)**: 각 노드에서 실제 데이터가 저장되는 폴더. 노드마다 별도 디스크에 둠
+- dc01을 끈 상태로 실습해서, 이름 찾기는 각 서버의 `/etc/hosts`에 등록 (서버는 DNS보다 `/etc/hosts`를 먼저 봄)
+
+**[bak01] 기본 설정, 브릭 디스크, 설치** (lin01 `00-clean-install` 복제 + 5GB 디스크 추가)
+
+```bash
+sudo hostnamectl set-hostname bak01
+sudo nmcli con mod enp0s3 ipv4.method manual ipv4.addresses 10.10.10.71/24 ipv4.gateway 10.10.10.1 ipv4.dns 8.8.8.8
+sudo nmcli con up enp0s3
+
+sudo tee -a /etc/hosts > /dev/null << 'EOF'
+10.10.10.20 lin01
+10.10.10.71 bak01
+10.10.10.72 bak02
+10.10.10.73 bak03
+EOF
+
+lsblk                                                   # 5G sdb 확인 후 포맷 (sda는 OS 디스크)
+sudo mkfs.xfs /dev/sdb
+sudo mkdir -p /data/brick1
+echo '/dev/sdb /data/brick1 xfs defaults 0 0' | sudo tee -a /etc/fstab
+sudo mount -a && sudo systemctl daemon-reload
+
+sudo dnf -y install centos-release-gluster11            # Rocky 9 extras 저장소의 GlusterFS 11 저장소 등록
+sudo dnf -y install glusterfs-server
+sudo firewall-cmd --permanent --add-service=glusterfs && sudo firewall-cmd --reload
+sudo poweroff                                           # glusterd 시작 전에 종료 후 복제
+```
+
+- bak01을 완전한 복제로 bak02, bak03 생성 (새 MAC, 브릭 디스크 포함) → 한 대씩 켜서 호스트명·IP만 변경
+
+**[bak01~03] 클러스터 구성**
+
+```bash
+sudo systemctl enable --now glusterd            # 3대 모두
+sudo gluster system:: uuid get                  # 3대 모두: 고유번호가 서로 달라야 함
+
+sudo gluster peer probe bak02                   # bak01에서
+sudo gluster peer probe bak03
+sudo gluster peer status                        # Number of Peers: 2, Peer in Cluster (Connected)
+
+sudo gluster volume create backupvol replica 3 bak01:/data/brick1/backupvol bak02:/data/brick1/backupvol bak03:/data/brick1/backupvol
+sudo gluster volume start backupvol
+sudo gluster volume info backupvol              # Type: Replicate, Number of Bricks: 1 x 3 = 3
+sudo gluster volume status backupvol            # 브릭 3개 Online Y
+```
+
+**[lin01] 클러스터 연결**
+
+```bash
+sudo tee -a /etc/hosts > /dev/null << 'EOF'
+10.10.10.71 bak01
+10.10.10.72 bak02
+10.10.10.73 bak03
+EOF
+
+sudo dnf -y install centos-release-gluster11
+sudo dnf -y install glusterfs-fuse
+sudo mkdir -p /mnt/backupvol
+# _netdev: 네트워크가 켜진 뒤 연결 / backup-volfile-servers: bak01이 죽어도 bak02·bak03으로 연결
+echo 'bak01:/backupvol /mnt/backupvol glusterfs defaults,_netdev,backup-volfile-servers=bak02:bak03 0 0' | sudo tee -a /etc/fstab
+sudo mount -a && sudo systemctl daemon-reload
+df -h /mnt/backupvol                            # 약 5G (3대 복제라 용량은 1대분)
+```
+
+**[lin01] 백업 스크립트 변경** `/usr/local/bin/backup.sh`
+
+```bash
+#!/bin/bash
+DATE=$(date +%F)
+SRC="/etc /srv/web /srv/share"
+LOCAL=/var/backup
+DEST=/mnt/backupvol/lin01
+LOG=/var/log/backup.log
+mkdir -p $LOCAL
+# 압축 실패 시 기록 후 종료
+if ! tar czf $LOCAL/lin01-$DATE.tar.gz $SRC 2>>$LOG; then
+  echo "$DATE TAR FAIL" >> $LOG
+  exit 1
+fi
+# 클러스터 연결 확인: 끊긴 상태로 복사하면 lin01 자기 디스크에 쌓이고 OK가 찍히므로 먼저 검사
+if ! mountpoint -q /mnt/backupvol; then
+  echo "$DATE MOUNT FAIL" >> $LOG
+  exit 1
+fi
+# 클러스터로 복사 → 3대에 자동 복제
+mkdir -p $DEST
+rsync -a $LOCAL/ $DEST/ \
+  && echo "$DATE OK" >> $LOG \
+  || echo "$DATE COPY FAIL" >> $LOG
+find $LOCAL -name '*.tar.gz' -mtime +7 -delete
+```
+
+**장애 테스트 1: 노드 1대(bak02) 강제 종료 상태에서 백업·복구**
+
+```bash
+# VirtualBox에서 bak02 전원 끄기 후 [lin01]
+sudo /usr/local/bin/backup.sh && sudo tail -1 /var/log/backup.log   # 2026-10-22 OK
+sudo rm /srv/web/index.html
+ls /mnt/backupvol/lin01                                              # 10-21, 10-22 백업 확인
+sudo tar xzf /mnt/backupvol/lin01/lin01-2026-10-21.tar.gz -C / srv/web/index.html
+sudo restorecon -Rv /srv/web
+curl http://localhost                                                # 정상
+```
+
+![노드 1대 장애 중 백업·복구]
+<!-- 여기에 사진 끌어다 놓기 -->
+
+**장애 테스트 2: 자가 치유 (bak02 다시 켜기)**
+
+```bash
+sudo gluster volume heal backupvol info          # [bak01] 3개 브릭 모두 Connected, Number of entries: 0
+ls -lh /data/brick1/backupvol/lin01              # [bak02] 꺼져 있던 동안 만든 10-22 백업이 자동으로 채워짐
+```
+
+![자가 치유 확인]
+<!-- 여기에 사진 끌어다 놓기 (heal info 화면, bak02 ls 화면) -->
+
 ## 복구 시간 기록
 
 | 실습 | 상황 | 걸린 시간 |
@@ -165,6 +303,7 @@ Get-ADUser kim.it -Properties MemberOf, Enabled              # 그룹 소속까�
 | 5-2 테스트 2 | 로컬 백업까지 삭제 → mon01 원격 백업으로 복구 | 약 3분 4초 |
 | 5-3 | dc01 시스템 상태 백업 (백업 소요) | 약 11분 |
 | 5-4 | AD 계정 삭제 → AD 휴지통으로 복구 | 약 3분 1초 |
+| 5-5 테스트 1 | 클러스터 노드 1대 강제 종료 상태에서 백업 → 복구 | 약 2분 53초 |
 
 - 테스트 1에는 명령어 실수가 포함됨. 절차를 익힌 테스트 2는 원격 복사 단계가 추가됐는데도 더 빨랐음.
 
@@ -174,6 +313,10 @@ Get-ADUser kim.it -Properties MemberOf, Enabled              # 그룹 소속까�
 - **백업 전용 계정과 키**: 비밀번호 없는 backup 계정에 공개키로만 접속하게 해서, 자동 실행이 가능하면서도 비밀번호 유출 위험을 없앰.
 - **AD 복구는 휴지통이 먼저**: 시스템 상태 복원은 DSRM 재부팅이 필요해 도메인 전체가 멈춤. AD 휴지통은 서비스 중단 없이 그룹 소속까지 복구.
 - **복구 후 SELinux 라벨 확인**: 복원한 파일은 라벨이 틀릴 수 있어 restorecon으로 다시 붙임.
+- **백업 보관소도 단일 장애점이 될 수 있음**: 원격 백업 서버 한 대는 그 서버가 죽으면 끝. 3대 복제 클러스터로 바꿔 노드 1대가 죽어도 백업·복구가 계속됨을 확인함.
+- **복제와 백업은 다름**: 복제는 실수로 지운 파일도 3대에서 동시에 지워짐. 그래서 클러스터 위에 날짜별 백업 파일을 쌓는 구조로 둠.
+- **자가 치유**: 꺼졌던 노드가 돌아오면 빠진 데이터를 다른 노드에서 자동으로 채움 (`gluster volume heal ... info`로 확인).
+- **왜 3대인가**: 과반(2대)이 살아 있어야 쓰기를 허용해, 노드끼리 데이터가 엇갈리는 split-brain을 막음. 2대로는 과반 판단이 불가능.
 
 ## 막힌 점과 해결
 
@@ -190,6 +333,9 @@ Get-ADUser kim.it -Properties MemberOf, Enabled              # 그룹 소속까�
 | 9 | wbadmin `backup location could not be found`, `-quiet` 명령 없음 | `E:` 대신 `E;` 입력. PowerShell에서 `;`는 명령 구분자 | `-backupTarget:E:`로 수정 |
 | 10 | `Enable-ADOptionalFeatures` 명령 없음 | 명령 이름 오타 (끝에 s) | `Enable-ADOptionalFeature`로 수정 |
 | 11 | dc01 시각이 한국보다 16시간 느림 (오전 5시대) | 시간대가 미국 태평양으로 설정됨 | `Set-TimeZone -Id "Korea Standard Time"` |
+| 12 | bak03 SSH 포트 포워딩이 동작하지 않을 뻔함 | 호스트 IP를 `127.0.01`로 입력 (점 누락) | `127.0.0.1`로 수정 후 적용 |
+| 13 | `/var/lib/glusterd/glusterd.info: No such file or directory` | 최신 GlusterFS는 고유번호(UUID)를 처음 필요할 때 생성 (정상 동작) | `gluster system:: uuid get`으로 3대의 UUID가 서로 다른지 확인 |
+| 14 | 오타 폴더 `/mnt/bakcupvol` 삭제 시 `Permission denied` | `sudo mkdir`로 만들어 주인이 root | `sudo rmdir`로 삭제 (빈 폴더만 지워서 안전) |
 
 막힌 점 5번 증거: 압축 실패(`tar: command not found`) 뒤에도 로그에 OK가 기록됨
 

@@ -283,7 +283,7 @@ curl http://localhost                                                # 정상
 ```
 
 ![노드 1대 장애 중 백업·복구]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="843" height="309" alt="image" src="https://github.com/user-attachments/assets/b92cc42c-0568-49b2-8905-017efbdd1bb3" />
 
 **장애 테스트 2: 자가 치유 (bak02 다시 켜기)**
 
@@ -293,7 +293,8 @@ ls -lh /data/brick1/backupvol/lin01              # [bak02] 꺼져 있던 동안 
 ```
 
 ![자가 치유 확인]
-<!-- 여기에 사진 끌어다 놓기 (heal info 화면, bak02 ls 화면) -->
+<img width="576" height="308" alt="image" src="https://github.com/user-attachments/assets/e4ca0ee1-6695-422f-8e4d-29f05b1574ac" />
+<img width="518" height="318" alt="image" src="https://github.com/user-attachments/assets/45722a59-bd31-4fde-b15c-cbf14a9b7844" />
 
 ## 복구 시간 기록
 

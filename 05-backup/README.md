@@ -294,6 +294,7 @@ ls -lh /data/brick1/backupvol/lin01              # [bak02] 꺼져 있던 동안 
 
 ![자가 치유 확인]
 <img width="576" height="308" alt="image" src="https://github.com/user-attachments/assets/e4ca0ee1-6695-422f-8e4d-29f05b1574ac" />
+
 <img width="518" height="318" alt="image" src="https://github.com/user-attachments/assets/45722a59-bd31-4fde-b15c-cbf14a9b7844" />
 
 ## 복구 시간 기록

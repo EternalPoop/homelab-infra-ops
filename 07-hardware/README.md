@@ -54,10 +54,10 @@ ip -br addr show bond0
 ```
 
 ![본딩 구성 중 실수: port2를 enp0s3으로 만듦, 자동 생성 프로필 남아 있음]
-<!-- 여기에 01-bond-mistake.png 끌어다 놓기 -->
+<img width="1120" height="821" alt="image" src="https://github.com/user-attachments/assets/9bc1c978-e0a6-450b-a6a6-f0a293a56c55" />
 
 ![본딩 완료: active-backup, enp0s3·enp0s8 둘 다 up, bond0 10.10.10.20]
-<!-- 여기에 02-bond-ok.png 끌어다 놓기 -->
+<img width="1056" height="840" alt="image" src="https://github.com/user-attachments/assets/38a101c3-6bc8-4fab-aadc-639a1ff2409e" />
 
 ### 부하 테스트 (iperf3)
 
@@ -82,10 +82,10 @@ sudo firewall-cmd --reload
 | 재전송(Retr) | 14,760 | 가상 랜카드에 최대 부하를 줄 때 흔한 수준. **실서버였다면 SOP의 네트워크 점검(`ethtool -S`, 케이블·GBIC 교차 테스트) 대상** |
 
 ![iperf3 결과: 1.91 Gbits/sec, Retr 14760]
-<!-- 여기에 03-iperf-result.png 끌어다 놓기 -->
+<img width="645" height="810" alt="image" src="https://github.com/user-attachments/assets/5478746f-2248-425f-a322-1ed983d67649" />
 
 ![테스트 후 에러 카운터: errors 0, dropped 10]
-<!-- 여기에 04-iperf-counters.png 끌어다 놓기 -->
+<img width="971" height="819" alt="image" src="https://github.com/user-attachments/assets/4595183b-e7c2-45ba-926c-1df1c6124ea2" />
 
 ### 절체 테스트
 
@@ -109,10 +109,10 @@ grep -c "no answer" ~/bond-ping.log
 | 외부 ping (40회) | **1회 손실** (15:44:00, 약 1초) |
 
 ![랜선 뽑기 → enp0s8로 절체 → 다시 꽂으면 enp0s3로 복귀]
-<!-- 여기에 05-failover.png 끌어다 놓기 -->
+<img width="1300" height="819" alt="image" src="https://github.com/user-attachments/assets/808dbb40-7e91-45b3-b537-2fec76fc0b98" />
 
 ![mon01 ping 40회 중 1회 손실]
-<!-- 여기에 06-ping-loss.png 끌어다 놓기 -->
+<img width="879" height="811" alt="image" src="https://github.com/user-attachments/assets/3367fda7-aaf3-4977-8ccc-11b396676b78" />
 
 ---
 
@@ -133,7 +133,7 @@ grep -c "no answer" ~/bond-ping.log
 | 확인 포인트 | `app` 폴더 소유자 admin1, 숨김 파일 `.hidden-config` |
 
 ![원본 기록: 549개, 323M, admin1 소유 폴더, 숨김 파일 / 백업 클러스터 재연결]
-<!-- 여기에 07-original-data.png 끌어다 놓기 -->
+<img width="957" height="820" alt="image" src="https://github.com/user-attachments/assets/31d0a367-e1df-4d62-9e65-3f029196a408" />
 
 ### 이전
 
@@ -164,7 +164,7 @@ sudo diff -r --no-dereference /data /mnt/newdisk && echo "SAME"
 | 소유자 | admin1 그대로 |
 
 ![rsync 1차·2차 비교와 검증]
-<!-- 여기에 08-rsync-verify.png 끌어다 놓기 -->
+<img width="936" height="816" alt="image" src="https://github.com/user-attachments/assets/fc3680e0-9f5b-4bf1-950a-574b1dd8511a" />
 
 ### 교체와 fstab 복구
 
@@ -196,13 +196,13 @@ sudo rm /data/writetest
 - `nofail`: 이 디스크가 없어도 부팅은 계속되게 함
 
 ![fstab: 장치 이름 대신 UUID + nofail]
-<!-- 여기에 09-fstab-uuid.png 끌어다 놓기 -->
+<img width="877" height="323" alt="image" src="https://github.com/user-attachments/assets/57753dba-98a8-4894-bd5f-dd7491802608" />
 
 ![새 디스크 UUID로 연결, 549개 일치, a.txt 변경분 포함, 쓰기 1.6 GB/s]
-<!-- 여기에 10-new-disk-check.png 끌어다 놓기 -->
+<img width="856" height="524" alt="image" src="https://github.com/user-attachments/assets/e9d0a43e-6ba0-48ff-81d6-a0fc77a69980" />
 
 ![재부팅 후 /data 자동 연결]
-<!-- 여기에 11-after-reboot.png 끌어다 놓기 -->
+<img width="1010" height="272" alt="image" src="https://github.com/user-attachments/assets/f6ce15fd-580f-406a-b7a7-436f92a686cd" />
 
 ---
 

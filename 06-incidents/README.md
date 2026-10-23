@@ -35,7 +35,7 @@ Type을 Zabbix agent가 아니라 **Simple check**로 한 이유: agent 방식�
 | 8 | DNS 서비스 중지 | 12:09:48 | Zabbix 12:12:13 | cli01 `nslookup` timed out, `Get-Service DNS` | `Start-Service DNS` | 12:14:51 (5분 3초) |
 
 ![Zabbix 알림 기록 - 시나리오 1, 2, 3, 8 알림과 복구]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/5b48cf07-e313-4f1e-a92a-d25c7d909379" />
 
 ---
 
@@ -59,10 +59,10 @@ df -h /srv/web          # Use% 2%
 - **알림까지 약 5분**: 트리거가 "5분 동안 계속 90% 초과"일 때만 울리도록 되어 있음. 첫 시도는 1분 24초 만에 지워서 알림이 안 떴음
 
 ![디스크 99% → du로 원인 확인 → 삭제 후 2%]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="1294" height="823" alt="image" src="https://github.com/user-attachments/assets/495f0bac-362f-462d-957a-ed3ac04dac4d" />
 
 ![Zabbix 디스크 알림 메일]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="794" height="369" alt="image" src="https://github.com/user-attachments/assets/786a1825-640d-45c1-9472-409522b4dd7e" />
 
 **심화: 지웠는데 용량이 안 줄어드는 경우**
 
@@ -83,7 +83,7 @@ df -h /srv/web
 ```
 
 ![lsof +L1 로 deleted 파일을 잡은 프로세스 확인]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="1300" height="816" alt="image" src="https://github.com/user-attachments/assets/0d1ceca9-1183-4404-86b3-e6b0e08ede2d" />
 
 ## 시나리오 2. 웹 서비스 다운 (lin01)
 
@@ -109,7 +109,7 @@ curl -s localhost | head -1
 - 진단 화면을 지운 뒤에도 `journalctl -u nginx --since "11:00"`, `/var/log/nginx/error.log`, `history`로 **사후 분석**이 가능했음
 
 ![journalctl, error.log, history로 사후 확인]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="869" height="826" alt="image" src="https://github.com/user-attachments/assets/b97054eb-8d63-42fc-bc80-c7b96e24835e" />
 
 ## 시나리오 3. 방화벽으로 웹 차단 (lin01)
 
@@ -133,7 +133,7 @@ sudo firewall-cmd --reload
 - lin01에서 자기 IP(10.10.10.20)로 curl 하면 방화벽을 거치지 않아 성공함 → **감시와 확인은 밖에서 해야 한다**
 
 ![서버 안에서는 정상, firewall-cmd 로 http 빠진 것 확인 후 복구]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="1129" height="830" alt="image" src="https://github.com/user-attachments/assets/24c2459e-0bd9-4ebe-b05d-1faaef83a0a4" />
 
 ## 시나리오 4. SSH 접속 불가 (lin01)
 
@@ -159,13 +159,13 @@ sudo systemctl restart sshd
 - 세션이 없었다면 콘솔(실무: iLO/iDRAC 원격 콘솔)로 들어가야 함
 
 ![sshd 재시작 실패]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="1121" height="651" alt="image" src="https://github.com/user-attachments/assets/d7a29e7f-7d83-43ae-b3cb-77b253b1a6d0" />
 
 ![sshd -t 로 131번째 줄 확인 후 복구]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="929" height="510" alt="image" src="https://github.com/user-attachments/assets/f347bb6c-e0c2-44fa-80db-0acbd942ef64" />
 
 ![접속 실패 → 복구 후 접속 성공]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="665" height="190" alt="image" src="https://github.com/user-attachments/assets/738f0dd6-6809-4a51-8520-ba011abdd43f" />
 
 ## 시나리오 5. 부팅 불가 - fstab 오류 (lin01)
 
@@ -187,13 +187,13 @@ reboot
 - **2차 장애 발견**: 정상 부팅 후 `df -h`에서 `/mnt/backupvol`이 안 붙어 있었음 → bak01~03이 꺼져 있었음 → 켜고 `sudo mount /mnt/backupvol`로 복구 (12:32)
 
 ![부팅이 lv_none 을 기다리며 멈춤]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="736" height="612" alt="image" src="https://github.com/user-attachments/assets/a2717843-40be-4caa-a858-7c611e5b43b1" />
 
 ![응급 모드에서 fstab 수정]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="882" height="825" alt="image" src="https://github.com/user-attachments/assets/4ce72588-de4f-4f9c-bad9-9a2316f14e8c" />
 
 ![재부팅 후 백업 클러스터 미연결 → mount 로 복구]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="498" height="458" alt="image" src="https://github.com/user-attachments/assets/c26e0a0d-c048-4235-a644-23cb8cfd4cd0" />
 
 ## 시나리오 6. root 비밀번호 분실 (lin01)
 
@@ -221,10 +221,10 @@ su -          # su: Authentication failure
 - 다음 로그인 때 `Last failed login ... There was 1 failed login attempt` 로 실패 시도가 표시됨
 
 ![su 실패]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="482" height="296" alt="image" src="https://github.com/user-attachments/assets/6000664c-57e6-4983-bacc-ba6460f49d54" />
 
 ![재설정 후 root 전환 성공]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="582" height="393" alt="image" src="https://github.com/user-attachments/assets/a43de737-7ffd-49f4-b923-9c5f7138bc45" />
 
 ## 시나리오 7. AD 계정 잠김 (dc01, cli01)
 
@@ -246,10 +246,10 @@ Get-ADUser kim.it -Properties LockedOut | Select-Object Name, LockedOut   # Fals
 - dc01 시각이 미국 서부 시간으로 찍혀 있었음(시간대 설정 문제) → 아래 "막힌 점" 참고
 
 ![이벤트 4740 - 잠긴 계정과 호출 PC]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="983" height="522" alt="image" src="https://github.com/user-attachments/assets/8599d8c3-5fe6-4660-bbb5-7817100137ef" />
 
 ![잠금 해제]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="800" height="279" alt="image" src="https://github.com/user-attachments/assets/0cd80dca-8219-4e0d-a1cc-3e2978cb898e" />
 
 ## 시나리오 8. DNS 장애 (dc01)
 
@@ -275,10 +275,10 @@ nslookup dc01.lab.local     # Address: 10.10.10.10
 - DC가 1대뿐이라 DNS가 단일 장애점 → 재발방지: DC 2대 + 클라이언트에 DNS 2개 등록
 
 ![DNS 중지 후 cli01 에서 조회 실패, 공유 폴더는 캐시로 열림]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="1032" height="780" alt="image" src="https://github.com/user-attachments/assets/5a89310d-5c50-4616-824a-99ef4717f2fd" />
 
 ![DNS 재시작 후 조회 성공]
-<!-- 여기에 사진 끌어다 놓기 -->
+<img width="1037" height="778" alt="image" src="https://github.com/user-attachments/assets/dcd4af08-84a1-4e9f-8d15-7f6474be72d7" />
 
 ---
 

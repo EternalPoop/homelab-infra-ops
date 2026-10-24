@@ -205,6 +205,243 @@ sudo rm /data/writetest
 <img width="1010" height="272" alt="image" src="https://github.com/user-attachments/assets/f6ce15fd-580f-406a-b7a7-436f92a686cd" />
 
 ---
+## C. RAID 구성과 디스크 장애 대응 (mdadm)
+
+실서버의 RAID 컨트롤러(HPE Smart Array, Dell PERC) 대신 리눅스 소프트웨어 RAID(`mdadm`)로 **장애 → Hot Spare 자동 리빌드 → 디스크 교체 → Degraded 수동 교체 → RAID 레벨 변경**을 직접 해 봤습니다. 화면만 다르고 상태 이름(Optimal/Degraded/Rebuild, Hot Spare)과 판단 순서는 실서버와 같습니다.
+
+- 실습일: 2026-10-24
+- 디스크: 1G 4개 추가 (sdc, sde, sdf, sdg)
+
+### 작업 전: 디스크 이름 확인 (가장 중요했던 단계)
+
+1G 디스크 4개를 꽂자 장치 이름이 또 밀려서, **B에서 옮긴 `/data` 디스크가 `sdd`**가 됐습니다. 처음엔 문서의 가정(`sdd sde sdf sdg`)대로 `sdd`를 넣었다가 `Device or resource busy`로 막혔고, `lsblk -f`로 보니 운영 데이터 디스크였습니다. 막히지 않았다면 데이터 디스크를 RAID로 덮어썼을 상황입니다.
+
+반대로 `/data`는 이름이 sdc → sdd로 바뀌었는데도 제자리에 붙어 있었습니다. **B에서 fstab을 UUID로 바꿔 둔 덕분**입니다.
+
+```bash
+# [lin01] 디스크별 크기·파일시스템·연결 위치 (-f = 파일시스템 정보까지)
+lsblk -f
+# [lin01] 디스크 이름과 크기만 (-d = 디스크만) → 1G 이고 비어 있는 4개 = sdc sde sdf sdg
+lsblk -d -o NAME,SIZE
+```
+
+![sdd 를 넣었다가 busy 로 막힘]
+<img width="979" height="105" alt="image" src="https://github.com/user-attachments/assets/cecf05cb-aee8-46b8-b7ed-a27c49387ed6" />
+
+![sdd = /data(2G, 사용 중), 빈 1G 디스크 = sdc sde sdf sdg]
+<img width="1005" height="754" alt="image" src="https://github.com/user-attachments/assets/077f7186-e42f-4cbc-b19f-66547ef0bb0e" />
+
+### RAID 1 + Hot Spare 구성
+
+| 디스크 | 역할 |
+|---|---|
+| sdc + sde | 미러 (RAID 1) |
+| sdf | 예비 (Hot Spare) |
+| sdg | 테스트 3(RAID 5)에서 사용 |
+
+```bash
+# [lin01] 소프트웨어 RAID 도구 설치
+sudo dnf install -y mdadm
+# [lin01] RAID 1 + Hot Spare. 비트맵(write-intent bitmap) 질문은 y = 리빌드 때 바뀐 부분만 다시 맞춤
+sudo mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sdc /dev/sde --spare-devices=1 /dev/sdf
+# [lin01] 재부팅해도 같은 이름으로 잡히게 설정 저장
+sudo mdadm --detail --scan | sudo tee -a /etc/mdadm.conf
+# [lin01] 파일시스템 → 연결 → 테스트 파일과 체크섬(md5) 기록
+sudo mkfs.xfs /dev/md0
+sudo mkdir -p /mnt/raid && sudo mount /dev/md0 /mnt/raid
+sudo dd if=/dev/urandom of=/mnt/raid/test.bin bs=1M count=200
+md5sum /mnt/raid/test.bin | tee ~/raid-md5.txt
+```
+
+![/dev/md0/ 처럼 끝에 / 를 붙여 생성 실패]
+<img width="1005" height="754" alt="image" src="https://github.com/user-attachments/assets/ed1c56bc-eb90-430c-96a2-b2be3e24002b" />
+
+### 테스트 1: 디스크 장애 → Hot Spare 자동 리빌드 → 교체
+
+```bash
+# [lin01] sdc 를 고장 처리 (디스크 장애 재현)
+sudo mdadm /dev/md0 --fail /dev/sdc
+# [lin01] 예비 sdf 가 자동 투입되어 리빌드 → [UU]
+watch -n 1 cat /proc/mdstat
+# [lin01] 상태와 데이터 확인
+sudo mdadm --detail /dev/md0
+md5sum /mnt/raid/test.bin; cat ~/raid-md5.txt
+# [lin01] 고장 디스크 제거 → RAID 정보 초기화(새 디스크처럼) → 다시 넣기 = 새 예비 디스크
+sudo mdadm /dev/md0 --remove /dev/sdc
+sudo mdadm --zero-superblock /dev/sdc
+sudo mdadm /dev/md0 --add /dev/sdc
+```
+
+| 확인 | 결과 |
+|---|---|
+| `/proc/mdstat` | `sdc[0](F)`, 예비 sdf 투입, `[2/2] [UU]` (1G라 몇 초 만에 리빌드) |
+| `--detail` | State `clean`, Failed 1, Spare 0 → 교체 후 Failed 0, Spare 1, sdc = `spare` |
+| md5 | 장애 전후 동일 |
+
+![sdc(F) 고장 처리 → 예비 sdf 투입, [UU]]
+<img width="1321" height="175" alt="image" src="https://github.com/user-attachments/assets/42a709a4-ed81-4058-ab93-7c95da54a476" />
+
+![sdf 가 0번 자리 active, sdc faulty, md5 동일]
+<img width="535" height="619" alt="image" src="https://github.com/user-attachments/assets/646203ad-cb05-4426-956b-fff4d67e8c75" />
+
+![고장 디스크 제거 → 초기화 → 새 예비로 투입 (Spare 1)]
+<img width="533" height="643" alt="image" src="https://github.com/user-attachments/assets/b1cae544-d305-42e6-a5b5-ceb5d919ff1a" />
+
+### 테스트 2: 예비 없이 장애 → Degraded → 수동 교체
+
+```bash
+# [lin01] 예비 sdc 를 미리 빼고, 동작 중인 sde 를 고장 처리
+sudo mdadm /dev/md0 --remove /dev/sdc
+sudo mdadm /dev/md0 --fail /dev/sde
+# [lin01] [U_] = 한쪽만 남은 Degraded, State : clean, degraded
+cat /proc/mdstat
+sudo mdadm --detail /dev/md0
+# [lin01] 고장 디스크 빼고 새 디스크(sdc) 넣기 → 빈자리가 있어 예비가 아니라 바로 리빌드
+sudo mdadm /dev/md0 --remove /dev/sde
+sudo mdadm /dev/md0 --add /dev/sdc
+```
+
+| 확인 | 결과 |
+|---|---|
+| 커널 메시지 | `Disk failure on sde, disabling device` / `Operation continuing on 1 devices` (디스크 1개로 서비스 계속) |
+| 상태 | `[2/1] [U_]`, `clean, degraded`, 1번 자리 `removed` |
+| 교체 후 | `md: recover of RAID array md0` → 약 6초 후 `recover done`, State `clean`, sdf·sdc `active sync` |
+
+테스트 1(예비 있음)은 자동으로 들어가고 넣은 디스크는 **예비**가 되지만, 테스트 2(예비 없음)는 Degraded로 버티다가 넣은 디스크가 **바로 active로 리빌드**됩니다.
+
+![Degraded: Disk failure on sde, [U_], clean, degraded → sdc 투입, 리빌드 시작]
+<img width="567" height="824" alt="image" src="https://github.com/user-attachments/assets/10eefba9-2863-4588-936e-cac59ce787d7" />
+
+![리빌드 완료: recover done, clean, sdf·sdc active sync]
+<img width="534" height="822" alt="image" src="https://github.com/user-attachments/assets/68b7d043-7d6d-4d79-91cd-ada6ef42f70d" />
+
+![정상 디스크는 fail 처리 없이 remove 되지 않음 (안전장치)]
+<img width="562" height="850" alt="image" src="https://github.com/user-attachments/assets/97a768a8-573c-4358-9efa-6ba8be4e4065" />
+
+### 테스트 3: RAID 1 → RAID 5 재구성
+
+RAID 레벨 변경은 대부분 데이터가 지워지는 작업이라 **백업 → 삭제 → 재생성 → 복구 → 검증** 순서로 했습니다.
+
+```bash
+# [lin01] 백업 → 연결 해제 → RAID 정지
+sudo cp /mnt/raid/test.bin /var/tmp/
+sudo umount /mnt/raid
+sudo mdadm --stop /dev/md0
+# [lin01] 1G 디스크 4개 RAID 정보 초기화 (sdd = /data 는 절대 넣지 않음)
+sudo mdadm --zero-superblock /dev/sdc /dev/sde /dev/sdf /dev/sdg
+# [lin01] /etc/mdadm.conf 의 옛 ARRAY 줄 삭제 (vim 에서 dd → :wq)
+sudo vim /etc/mdadm.conf
+# [lin01] RAID 5 (sdc sde sdf) + 예비 sdg
+sudo mdadm --create /dev/md0 --level=5 --raid-devices=3 /dev/sdc /dev/sde /dev/sdf --spare-devices=1 /dev/sdg
+sudo mdadm --detail --scan | sudo tee -a /etc/mdadm.conf
+# [lin01] 파일시스템 → 복구 → 검증
+sudo mkfs.xfs -f /dev/md0
+sudo mount /dev/md0 /mnt/raid
+sudo cp /var/tmp/test.bin /mnt/raid/
+md5sum /mnt/raid/test.bin; cat ~/raid-md5.txt
+df -h /mnt/raid
+```
+
+| 확인 | 결과 |
+|---|---|
+| mdadm.conf | `ARRAY /dev/md0 metadata=1.2 spares=1 UUID=...` |
+| md5 | 원본과 동일 (재구성 후 복구 성공) |
+| 용량 | RAID 1 약 1G → RAID 5 **2.0G** (디스크 3개 중 1개분은 패리티) |
+
+![--raid-devices 를 ==raid-devices 로 입력해 생성 실패]
+<img width="1052" height="116" alt="image" src="https://github.com/user-attachments/assets/78e4fff0-37b2-4fca-b571-4147514da4d4" />
+
+![RAID 5: mdadm.conf 저장, md5 동일, 2.0G]
+<img width="740" height="459" alt="image" src="https://github.com/user-attachments/assets/f1b2de55-e7d2-48ea-b35c-149851112655" />
+
+---
+
+## D. OS 업데이트 (패키지 버전 고정, 옛 커널 정리)
+
+실무 SOP의 OS 업데이트(`yum versionlock`, `package-cleanup --oldkernels`)를 Rocky 9의 `dnf`로 같은 순서로 했습니다. OS 패키지는 iLO/iDRAC가 아니라 OS 안에서 명령으로 하는 작업이라 실무와 같은 방식입니다.
+
+### 사전 기록 → 버전 고정 → 업데이트
+
+```bash
+# [lin01] OS·커널 버전, 디스크 여유, 업데이트 대상 수, 실행 중인 서비스 목록
+cat /etc/rocky-release
+uname -r
+df -h /
+sudo dnf check-update | wc -l
+systemctl list-units --type=service --state=running --no-legend | awk '{print $1}' | sort > ~/svc-before.txt
+
+# [lin01] nginx 를 현재 버전으로 고정 (실무에서는 DB 패키지 등)
+sudo dnf install -y python3-dnf-plugin-versionlock
+rpm -q nginx
+sudo dnf versionlock add nginx
+sudo dnf versionlock list
+
+# [lin01] 업데이트 → 고정 유지 확인 → 재부팅 필요 여부
+sudo dnf update -y
+rpm -q nginx
+sudo dnf needs-restarting -r
+```
+
+| 확인 | 결과 |
+|---|---|
+| 사전 기록 | Rocky Linux 9.8, `/` 여유 15G |
+| 버전 고정 | `nginx-2:1.20.1-28.el9_8.6.rocky.0.1.*` |
+| 업데이트 | `Nothing to do.` (이미 최신) |
+| nginx | 업데이트 전과 같은 버전 |
+| 재부팅 | `Reboot should not be necessary.` |
+
+이미 최신이라 실제로 받은 패키지는 없었고, "점검 결과 작업 대상 없음"도 결과 보고 대상으로 기록했습니다.
+
+![사전 기록 (check-update 에 te 오타, wc -1 오타 포함)]
+<img width="1323" height="825" alt="image" src="https://github.com/user-attachments/assets/b5fe7611-a636-415e-959c-ee489e6c9afe" />
+
+![nginx 버전 고정]
+<img width="707" height="287" alt="image" src="https://github.com/user-attachments/assets/13f2c8de-b4ce-4cf4-ae88-823f392c8112" />
+
+![업데이트 대상 없음, nginx 버전 유지, 재부팅 불필요]
+<img width="665" height="219" alt="image" src="https://github.com/user-attachments/assets/bdaee2ac-4405-4a7a-bcac-b59e6967938e" />
+
+### 옛 커널 정리 (사고 사례)
+
+```bash
+# [lin01] 옛 커널 정리: 최신 포함 2개만 남기려던 명령
+sudo dnf remove -y --oldinstallonly --setopt installonly_limit=2 kernel
+rpm -q kernel
+```
+
+커널이 3개(687.10.1 설치 때 커널, 687.58.1, 687.59.1) 있었는데, 정리 후 **59.1 하나만 남았습니다.** `dnf history`로 보니 실행한 명령에 `kernel`이 아니라 **`kernal` 오타**가 들어가 있었고, 제한(2개 남기기)이 커널에 걸리지 않은 것으로 보입니다. 남은 커널로 정상 부팅되는 것을 확인했지만, 그 전까지는 문제가 생겨도 돌아갈 이전 커널이 없는 상태였습니다.
+
+→ 교훈: **삭제 작업은 `-y` 없이 Removing 목록을 확인하고 진행**, 재부팅 전 **스냅샷**으로 원복 수단 확보, 원인은 `dnf history`로 추적.
+
+![커널 2개가 삭제되고 59.1 하나만 남음]
+<img width="1293" height="813" alt="image" src="https://github.com/user-attachments/assets/3585178a-0404-4c14-b083-7d65b6f3872a" />
+
+### 사후 확인
+
+```bash
+# [lin01] 버전, 서비스 목록 비교(출력 없으면 동일), 웹, 마운트, 작업 이력
+cat /etc/rocky-release
+uname -r
+systemctl list-units --type=service --state=running --no-legend | awk '{print $1}' | sort > ~/svc-after.txt
+diff ~/svc-before.txt ~/svc-after.txt
+curl -s localhost | head -1
+df -h /srv/web /mnt/backupvol
+sudo dnf history | head -5      # 되돌릴 때는 sudo dnf history undo <ID>
+# [lin01] 연습 끝, 버전 고정 해제
+sudo dnf versionlock delete nginx kernel
+```
+
+| 확인 | 결과 |
+|---|---|
+| 커널 | `5.14.0-687.59.1.el9_8` |
+| 서비스 | `diff` 출력 없음 (작업 전후 동일) |
+| 웹 | `<h1>lin01 lab web</h1>` |
+| 마운트 | `/srv/web`, `/mnt/backupvol` 정상 |
+| 이력 | ID 14 versionlock 설치, 15 update, 16 커널 정리 |
+
+![사후 확인: 59.1, 서비스 동일, 웹·마운트 정상, dnf history 로 오타 원인 확인]
+<img width="1324" height="568" alt="image" src="https://github.com/user-attachments/assets/3673e76f-fb08-45ee-a001-1a035210ac43" />
+
 
 ## 배운 점
 
@@ -214,7 +451,12 @@ sudo rm /data/writetest
 - **rsync 2차 복사로 중단 시간 단축**: 서비스 중 1차, 작업 시간에 변경분만
 - **장치 이름은 바뀐다**: fstab은 UUID로, 재부팅 전엔 `mount -a`
 - **재부팅 후엔 마운트까지 확인**: 백업 클러스터가 빠진 걸 두 번 잡아냄. 의존하는 서버(백업 노드)를 먼저 켜 두는 기동 순서가 중요
+- **디스크 작업 전엔 `lsblk -f`부터**: 디스크를 추가할 때마다 이름이 밀려서 sdd가 운영 데이터 디스크가 됨. 이름이 아니라 크기·사용처로 대상을 확정
+- **예비 디스크 유무에 따라 대응이 다름**: Hot Spare가 있으면 자동 리빌드 후 교체 디스크는 예비로, 없으면 Degraded로 버티다가 교체 디스크가 바로 리빌드
+- **RAID 레벨 변경 = 백업부터**: 지우고 다시 만드는 작업이라 md5로 복구 전후 데이터를 검증
+- **삭제는 목록을 보고**: `-y`로 커널 정리를 돌렸다가 오타 하나로 커널 2개가 지워짐. `dnf history`로 무엇을 실행했는지 추적 가능
 
+  
 ## 막힌 점과 해결
 
 | # | 막힌 점 | 원인 | 해결 |
@@ -231,3 +473,13 @@ sudo rm /data/writetest
 | 10 | fstab 의 옛 줄을 지우고 UUID 줄을 쓰는 방법을 몰랐음 | UUID를 손으로 치기 어려움 | vim 에서 `dd`로 삭제 후 `:r !blkid -s UUID -o value /dev/sdc`로 UUID 를 불러와 앞뒤만 입력 |
 | 11 | 새 디스크가 3G가 아니라 2G로 붙음 | 디스크를 만들 때 크기를 2GB로 지정 | 같은 크기라 용량으로 구분할 수 없어 **파일시스템 UUID**(옛 c1d6de54 / 새 73dbf605)로 새 디스크임을 확인 |
 | 12 | 쓰기 테스트 `0 bytes copied` | `if=`를 `of=`로 입력 | `dd if=/dev/zero of=...`로 재실행 |
+| 13 | `mdadm: cannot open /dev/sdd: Device or resource busy` | 디스크 4개 추가로 이름이 밀려 sdd = B에서 옮긴 `/data` 디스크 | `lsblk -f`, `lsblk -d -o NAME,SIZE`로 빈 1G 디스크(sdc sde sdf sdg)를 확인해 교체. 기술서 명령도 sdd → sdc로 수정 |
+| 14 | `/dev/md0/ is an invalid name for an md device` (2회) | 장치 이름 끝에 `/`를 붙임 | `/dev/md0` |
+| 15 | `watch` 화면에서 아무 키도 안 먹음 | `watch`는 1초마다 다시 그리는 동안 입력을 받지 않음 | `Ctrl + C`로 나감 |
+| 16 | 콘솔에 `[ 1066.74...] md: recover ...`가 끼어들어 멈춘 것처럼 보임 | 커널 메시지가 VM 콘솔에 바로 출력됨 | Enter 한 번 → 프롬프트 다시 표시. 고장 아님 |
+| 17 | 테스트 2 명령을 다시 쳐서 `hot remove failed ... busy`, `No such device` | 테스트가 이미 끝난 상태에서 재실행. sdc는 정상 동작 중, sde는 이미 빠짐 | 상태는 그대로(`[UU]`). 정상 디스크는 `--fail` 없이 못 빼는 안전장치임을 확인 |
+| 18 | `mdadm: no raid-devices specified.` | `--raid-devices`를 `==raid-devices`로 입력 | 하이픈 두 개 `--raid-devices=3` |
+| 19 | `dnf check-update` 결과가 `1` | 뒤에 `te`가 붙어 "te 패키지"만 조회 + `wc -1`(숫자) 오타 | `sudo dnf check-update \| wc -l` |
+| 20 | `package ngnix / kernal is not installed` | 패키지 이름 철자 오타 | `nginx`, `kernel`. "not installed"가 나오면 철자부터 확인 |
+| 21 | 옛 커널 정리 후 커널이 2개가 아니라 1개만 남음 (실행 중이던 58.1 포함 삭제) | 정리 명령에 `kernal` 오타 + `-y`로 목록 확인 없이 진행 | `dnf history`로 원인 확인. 59.1로 정상 부팅 확인. 이후 삭제는 `-y` 없이 목록 확인, 재부팅 전 스냅샷 |
+| 22 | `head: invalid option -- 'l'` | `head -1`(숫자)을 `-l`(엘)로 입력 | `head -1` (wc는 `-l` 엘, head는 `-1` 숫자) |

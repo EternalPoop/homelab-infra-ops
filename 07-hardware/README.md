@@ -54,9 +54,11 @@ ip -br addr show bond0
 ```
 
 ![본딩 구성 중 실수: port2를 enp0s3으로 만듦, 자동 생성 프로필 남아 있음]
+
 <img width="1120" height="821" alt="image" src="https://github.com/user-attachments/assets/9bc1c978-e0a6-450b-a6a6-f0a293a56c55" />
 
 ![본딩 완료: active-backup, enp0s3·enp0s8 둘 다 up, bond0 10.10.10.20]
+
 <img width="1056" height="840" alt="image" src="https://github.com/user-attachments/assets/38a101c3-6bc8-4fab-aadc-639a1ff2409e" />
 
 ### 부하 테스트 (iperf3)
@@ -82,9 +84,11 @@ sudo firewall-cmd --reload
 | 재전송(Retr) | 14,760 | 가상 랜카드에 최대 부하를 줄 때 흔한 수준. **실서버였다면 SOP의 네트워크 점검(`ethtool -S`, 케이블·GBIC 교차 테스트) 대상** |
 
 ![iperf3 결과: 1.91 Gbits/sec, Retr 14760]
+
 <img width="645" height="810" alt="image" src="https://github.com/user-attachments/assets/5478746f-2248-425f-a322-1ed983d67649" />
 
 ![테스트 후 에러 카운터: errors 0, dropped 10]
+
 <img width="971" height="819" alt="image" src="https://github.com/user-attachments/assets/4595183b-e7c2-45ba-926c-1df1c6124ea2" />
 
 ### 절체 테스트
@@ -109,9 +113,11 @@ grep -c "no answer" ~/bond-ping.log
 | 외부 ping (40회) | **1회 손실** (15:44:00, 약 1초) |
 
 ![랜선 뽑기 → enp0s8로 절체 → 다시 꽂으면 enp0s3로 복귀]
+
 <img width="1300" height="819" alt="image" src="https://github.com/user-attachments/assets/808dbb40-7e91-45b3-b537-2fec76fc0b98" />
 
 ![mon01 ping 40회 중 1회 손실]
+
 <img width="879" height="811" alt="image" src="https://github.com/user-attachments/assets/3367fda7-aaf3-4977-8ccc-11b396676b78" />
 
 ---
@@ -133,6 +139,7 @@ grep -c "no answer" ~/bond-ping.log
 | 확인 포인트 | `app` 폴더 소유자 admin1, 숨김 파일 `.hidden-config` |
 
 ![원본 기록: 549개, 323M, admin1 소유 폴더, 숨김 파일 / 백업 클러스터 재연결]
+
 <img width="957" height="820" alt="image" src="https://github.com/user-attachments/assets/31d0a367-e1df-4d62-9e65-3f029196a408" />
 
 ### 이전
@@ -164,6 +171,7 @@ sudo diff -r --no-dereference /data /mnt/newdisk && echo "SAME"
 | 소유자 | admin1 그대로 |
 
 ![rsync 1차·2차 비교와 검증]
+
 <img width="936" height="816" alt="image" src="https://github.com/user-attachments/assets/fc3680e0-9f5b-4bf1-950a-574b1dd8511a" />
 
 ### 교체와 fstab 복구
@@ -196,12 +204,15 @@ sudo rm /data/writetest
 - `nofail`: 이 디스크가 없어도 부팅은 계속되게 함
 
 ![fstab: 장치 이름 대신 UUID + nofail]
+
 <img width="877" height="323" alt="image" src="https://github.com/user-attachments/assets/57753dba-98a8-4894-bd5f-dd7491802608" />
 
 ![새 디스크 UUID로 연결, 549개 일치, a.txt 변경분 포함, 쓰기 1.6 GB/s]
+
 <img width="856" height="524" alt="image" src="https://github.com/user-attachments/assets/e9d0a43e-6ba0-48ff-81d6-a0fc77a69980" />
 
 ![재부팅 후 /data 자동 연결]
+
 <img width="1010" height="272" alt="image" src="https://github.com/user-attachments/assets/f6ce15fd-580f-406a-b7a7-436f92a686cd" />
 
 ---
@@ -226,9 +237,11 @@ lsblk -d -o NAME,SIZE
 ```
 
 ![sdd 를 넣었다가 busy 로 막힘]
+
 <img width="979" height="105" alt="image" src="https://github.com/user-attachments/assets/cecf05cb-aee8-46b8-b7ed-a27c49387ed6" />
 
 ![sdd = /data(2G, 사용 중), 빈 1G 디스크 = sdc sde sdf sdg]
+
 <img width="1005" height="754" alt="image" src="https://github.com/user-attachments/assets/077f7186-e42f-4cbc-b19f-66547ef0bb0e" />
 
 ### RAID 1 + Hot Spare 구성
@@ -254,6 +267,7 @@ md5sum /mnt/raid/test.bin | tee ~/raid-md5.txt
 ```
 
 ![/dev/md0/ 처럼 끝에 / 를 붙여 생성 실패]
+
 <img width="1005" height="754" alt="image" src="https://github.com/user-attachments/assets/ed1c56bc-eb90-430c-96a2-b2be3e24002b" />
 
 ### 테스트 1: 디스크 장애 → Hot Spare 자동 리빌드 → 교체
@@ -279,12 +293,15 @@ sudo mdadm /dev/md0 --add /dev/sdc
 | md5 | 장애 전후 동일 |
 
 ![sdc(F) 고장 처리 → 예비 sdf 투입, [UU]]
+
 <img width="1321" height="175" alt="image" src="https://github.com/user-attachments/assets/42a709a4-ed81-4058-ab93-7c95da54a476" />
 
 ![sdf 가 0번 자리 active, sdc faulty, md5 동일]
+
 <img width="535" height="619" alt="image" src="https://github.com/user-attachments/assets/646203ad-cb05-4426-956b-fff4d67e8c75" />
 
 ![고장 디스크 제거 → 초기화 → 새 예비로 투입 (Spare 1)]
+
 <img width="533" height="643" alt="image" src="https://github.com/user-attachments/assets/b1cae544-d305-42e6-a5b5-ceb5d919ff1a" />
 
 ### 테스트 2: 예비 없이 장애 → Degraded → 수동 교체
@@ -310,12 +327,15 @@ sudo mdadm /dev/md0 --add /dev/sdc
 테스트 1(예비 있음)은 자동으로 들어가고 넣은 디스크는 **예비**가 되지만, 테스트 2(예비 없음)는 Degraded로 버티다가 넣은 디스크가 **바로 active로 리빌드**됩니다.
 
 ![Degraded: Disk failure on sde, [U_], clean, degraded → sdc 투입, 리빌드 시작]
+
 <img width="567" height="824" alt="image" src="https://github.com/user-attachments/assets/10eefba9-2863-4588-936e-cac59ce787d7" />
 
 ![리빌드 완료: recover done, clean, sdf·sdc active sync]
+
 <img width="534" height="822" alt="image" src="https://github.com/user-attachments/assets/68b7d043-7d6d-4d79-91cd-ada6ef42f70d" />
 
 ![정상 디스크는 fail 처리 없이 remove 되지 않음 (안전장치)]
+
 <img width="562" height="850" alt="image" src="https://github.com/user-attachments/assets/97a768a8-573c-4358-9efa-6ba8be4e4065" />
 
 ### 테스트 3: RAID 1 → RAID 5 재구성
@@ -349,9 +369,11 @@ df -h /mnt/raid
 | 용량 | RAID 1 약 1G → RAID 5 **2.0G** (디스크 3개 중 1개분은 패리티) |
 
 ![--raid-devices 를 ==raid-devices 로 입력해 생성 실패]
+
 <img width="1052" height="116" alt="image" src="https://github.com/user-attachments/assets/78e4fff0-37b2-4fca-b571-4147514da4d4" />
 
 ![RAID 5: mdadm.conf 저장, md5 동일, 2.0G]
+
 <img width="740" height="459" alt="image" src="https://github.com/user-attachments/assets/f1b2de55-e7d2-48ea-b35c-149851112655" />
 
 ---
@@ -393,12 +415,15 @@ sudo dnf needs-restarting -r
 이미 최신이라 실제로 받은 패키지는 없었고, "점검 결과 작업 대상 없음"도 결과 보고 대상으로 기록했습니다.
 
 ![사전 기록 (check-update 에 te 오타, wc -1 오타 포함)]
+
 <img width="1323" height="825" alt="image" src="https://github.com/user-attachments/assets/b5fe7611-a636-415e-959c-ee489e6c9afe" />
 
 ![nginx 버전 고정]
+
 <img width="707" height="287" alt="image" src="https://github.com/user-attachments/assets/13f2c8de-b4ce-4cf4-ae88-823f392c8112" />
 
 ![업데이트 대상 없음, nginx 버전 유지, 재부팅 불필요]
+
 <img width="665" height="219" alt="image" src="https://github.com/user-attachments/assets/bdaee2ac-4405-4a7a-bcac-b59e6967938e" />
 
 ### 옛 커널 정리 (사고 사례)
@@ -440,6 +465,7 @@ sudo dnf versionlock delete nginx kernel
 | 이력 | ID 14 versionlock 설치, 15 update, 16 커널 정리 |
 
 ![사후 확인: 59.1, 서비스 동일, 웹·마운트 정상, dnf history 로 오타 원인 확인]
+
 <img width="1324" height="568" alt="image" src="https://github.com/user-attachments/assets/3673e76f-fb08-45ee-a001-1a035210ac43" />
 
 
